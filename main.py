@@ -39,15 +39,11 @@ def update_status(page_id):
     try:
         client.pages.update(
             page_id=page_id,
-            properties={
-                STATUS_PROPERTY: {
-                    "status": {"name": OVERDUE_STATUS}
-                }
-            }
+            properties={STATUS_PROPERTY: {"status": {"name": OVERDUE_STATUS}}}
         )
         logging.info("Updated: " + page_id)
-    except Exception as e:
-        logging.error("Error: " + str(e))
+    except Exception as error:
+        logging.error("Error: " + str(error))
 
 def main():
     if not NOTION_TOKEN or not DATABASE_ID:
@@ -60,3 +56,8 @@ def main():
         return
     logging.info("Found: " + str(len(items)))
     for item in items:
+        update_status(item["id"])
+    logging.info("Done")
+
+if __name__ == "__main__":
+    main()
