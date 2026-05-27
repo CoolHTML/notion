@@ -1,16 +1,12 @@
 import os
 import logging
-import time
 from datetime import datetime, timezone
 from notion_client import Client
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logging.basicConfig(level=logging.INFO)
 
-# Секреты из GitHub (имена переменных, не значения!)
 NOTION_TOKEN = os.getenv("NOTION_API_TOKEN")
 DATABASE_ID = os.getenv("NOTION_DATABASE_ID")
-
-# Ваши названия свойств из Notion (точно как в интерфейсе!)
 STATUS_PROPERTY = "Статус"
 DATE_PROPERTY = "Когда (в календаре)"
 OVERDUE_STATUS = "Событие прошло"
@@ -21,20 +17,13 @@ def get_overdue_items():
     now = datetime.now(timezone.utc).isoformat()
     results = []
     start_cursor = None
-    
     while True:
         response = client.databases.query(
             database_id=DATABASE_ID,
             filter={
                 "and": [
-                    {
-                        "property": DATE_PROPERTY,
-                        "date": {"before": now}
-                    },
-                    {
-                        "property": STATUS_PROPERTY,
-                        "status": {"does_not_equal": OVERDUE_STATUS}
-                    }
+                    {"property": DATE_PROPERTY, "date": {"before": now}},
+                    {"property": STATUS_PROPERTY, "status": {"does_not_equal": OVERDUE_STATUS}}
                 ]
             },
             start_cursor=start_cursor,
@@ -44,7 +33,6 @@ def get_overdue_items():
         if not response.get("has_more"):
             break
         start_cursor = response.get("next_cursor")
-    
     return results
 
 def update_status(page_id):
@@ -57,4 +45,18 @@ def update_status(page_id):
                 }
             }
         )
-        logging.info("Updated: %s", page_id)
+        logging.info("Updated: " + page_id)
+    except Exception as e:
+        logging.error("Error: " + str(e))
+
+def main():
+    if not NOTION_TOKEN or not DATABASE_ID:
+        logging.error("Secrets not set")
+        return
+    logging.info("Searching...")
+    items = get_overdue_items()
+    if not items:
+        logging.info("No overdue tasks")
+        return
+    logging.info("Found: " + str(len(items)))
+    for item in items:
