@@ -13,36 +13,32 @@ STATUS_PROPERTY = "Статус"       # Точное название коло�
 DATE_PROPERTY = "Когда (в календаре)"       # Точное название колонки с датой
 OVERDUE_STATUS = "Событие прошло"    # Значение статуса для просроченных
 
-client = Client(auth=NOTION_TOKEN)
+lient = Client(auth=NOTION_TOKEN)
 
 def get_overdue_items():
     """Поиск задач с прошедшим дедлайном и статусом != Просрочено"""
     now = datetime.now(timezone.utc).isoformat()
-    
-    query_payload = {
-        "database_id": DATABASE_ID,
-        "filter": {
-            "and": [
-                {"property": DATE_PROPERTY, "date": {"before": now}},
-                {"property": STATUS_PROPERTY, "status": {"does_not_equal": OVERDUE_STATUS}}
-            ]
-        }
-    }
-    
     overdue_items = []
+    has_more = True
     start_cursor = None
-    
-    while True:
-        if start_cursor:
-            query_payload["start_cursor"] = start_cursor
-            
-        response = client.databases.query(**query_payload)
+
+    while has_more:
+        # ✅ Явная передача аргументов (фиксит AttributeError)
+        response = client.databases.query(
+            database_id=DATABASE_ID,
+            filter={
+                "and": [
+                    {"property": DATE_PROPERTY, "date": {"before": now}},
+                    {"property": STATUS_PROPERTY, "status": {"does_not_equal": OVERDUE_STATUS}}
+                ]
+            },
+            start_cursor=start_cursor,
+            page_size=100
+        )
         overdue_items.extend(response["results"])
-        
-        if not response.get("has_more"):
-            break
+        has_more = response.get("has_more", False)
         start_cursor = response.get("next_cursor")
-        
+
     return overdue_items
 
 def update_status(page_id):
@@ -68,7 +64,7 @@ def main():
     for i, item in enumerate(items, 1):
         update_status(item["id"])
         if i % 10 == 0:
-            time.sleep(1)  # Защита от rate limit (Notion: ~3 запроса/сек)
+            time.sleep(1)  # Защита от rate limit
             
     logging.info("🏁 Готово!")
 
