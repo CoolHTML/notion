@@ -6,20 +6,18 @@ from notion_client import Client
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
-# 🔑 Настройки (берутся из GitHub Secrets по ИМЕНАМ)
+#  Настройки из GitHub Secrets
 NOTION_TOKEN = os.getenv("NOTION_API_TOKEN")
 DATABASE_ID = os.getenv("NOTION_DATABASE_ID")
 
-# ⚙️ Названия свойств из вашей базы (точно как в Notion!)
+# Названия свойств (точно как в вашей базе Notion!)
 STATUS_PROPERTY = "Статус"
 DATE_PROPERTY = "Когда (в календаре)"
 OVERDUE_STATUS = "Событие прошло"
 
-# ✅ Исправлено: client (было lient)
 client = Client(auth=NOTION_TOKEN)
 
 def get_overdue_items():
-    """Поиск задач с прошедшей датой и статусом != Событие прошло"""
     now = datetime.now(timezone.utc).isoformat()
     overdue_items = []
     has_more = True
@@ -44,19 +42,34 @@ def get_overdue_items():
     return overdue_items
 
 def update_status(page_id):
-    """Обновление статуса"""
     try:
         client.pages.update(
             page_id=page_id,
             properties={STATUS_PROPERTY: {"status": {"name": OVERDUE_STATUS}}}
         )
-        logging.info(f"✅ Обновлено: {page_id}")
+        logging.info("Updated: %s", page_id)
     except Exception as e:
-        logging.error(f"❌ Ошибка {page_id}: {e}")
+        logging.error("Error %s: %s", page_id, e)
 
 def main():
     if not NOTION_TOKEN or not DATABASE_ID:
-        logging.error("❌ Не найдены секреты! Проверьте Settings → Secrets in GitHub")
+        logging.error("Secrets not found! Check GitHub Settings -> Secrets")
         return
 
-    logging.info("🔍 Поиск просрочен
+    logging.info("Searching for overdue tasks...")
+    items = get_overdue_items()
+    
+    if not items:
+        logging.info("No overdue tasks found.")
+        return
+        
+    logging.info("Found %d tasks.", len(items))
+    for i, item in enumerate(items, 1):
+        update_status(item["id"])
+        if i % 10 == 0:
+            time.sleep(1)
+            
+    logging.info("Done!")
+
+if __name__ == "__main__":
+    main()
